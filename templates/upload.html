@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload PDFs</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="overlay">
+        <div class="loading-spinner" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>
+    </div>
+    <div class="container">
+        <h1>Upload Your PDFs</h1>
+        <div id="uploadContainer">
+            <label for="imageInput" id="uploadLabel">Click to Upload Image</label>
+            <input type="file" id="imageInput" name="files" multiple>
+        </div>
+        <div class="dropzone" id="dropzone">
+            <span>or Drag & Drop <br/> or Paste Pdf Here</span>
+        </div>
+        <pre id="output">Results: </pre>
+    </div>
+
+    <script>
+
+        window.addEventListener("load", (event) => {
+
+            const fileInput = document.getElementById("imageInput");
+            
+            document.getElementById('imageInput').addEventListener('change', function() {
+                pdfProcess(this);
+            });
+
+        
+            const dropzone = document.getElementById('dropzone');
+            dropzone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            dropzone.addEventListener('dragleave', function() {
+                this.classList.remove('dragover');
+            });
+
+            dropzone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dropzone.classList.remove("dragover");
+                const files = e.dataTransfer.files;
+                fileInput.files = files;
+                pdfProcess(fileInput);
+            });
+
+            // Paste Event Handler
+            dropzone.addEventListener("paste", (e) => {
+                const items = (e.clipboardData || window.clipboardData).items;
+                const files = Array.from(items).filter(item => item.kind === "file").map(item => item.getAsFile());
+                if (files.length > 0) {
+                    fileInput.files = new DataTransfer().files;
+                    files.forEach(file => fileInput.files.append(file));
+                    pdfProcess(fileInput);
+                }
+            });
+        });
+
+        const form = document.getElementById('upload-form');
+        const output = document.getElementById('output');
+
+        function showPdfProcessing(show) {
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = show ? 'block' : 'none';
+        }
+
+        async function pdfProcess(fileInput) {
+            if (fileInput.files.length === 0) {
+                alert("Please select at least one PDF file.");
+                return;
+            }
+
+            const formData = new FormData();
+            for (const file of fileInput.files) {
+                formData.append("files", file);
+            }
+
+            output.innerHTML = '';
+            showPdfProcessing(true);
+            try {
+                const response = await fetch('/upload-pdfs', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const result = await response.json();
+
+                output.innerHTML = '<h2>Results</h2>';
+                result.forEach(file => {
+                    const div = document.createElement('div');
+                    if (file.text) {
+                        div.innerHTML = `<strong>${file.filename}:</strong> ${file.text}`;
+                    } else {
+                        div.innerHTML = `<strong>${file.filename}:</strong> ${file.error}`;
+                    }
+                    output.appendChild(div);
+                });
+            } catch (error) {
+                output.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+            showPdfProcessing(false);
+        }
+
+    </script>
+</body>
+</html>
